@@ -74,7 +74,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         zip -j notarize.zip target/${{ matrix.target }}/release/rrconverter
-        xcrun notarytool submit notarize.zip --apple-id ${{ secrets.MACOS_NOTARY_APPLE_ID }} --password ${{ secrets.MACOS_NOTARY_PWD }} --team-id ${{ secrets.MACOS_NOTARY_TEAM_ID }} --wait
+        xcrun notarytool submit notarize.zip --apple-id ${{ secrets.MACOS_NOTARY_APPLE_ID }} --password ${{ secrets.MACOS_NOTARY_PWD }} --team-id ${{ secrets.MACOS_NOTARY_TEAM_ID }}
 
     - name: Prepare Artifact
       run: |
