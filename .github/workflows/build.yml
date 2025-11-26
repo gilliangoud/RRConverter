@@ -58,6 +58,24 @@ jobs:
         fi
       shell: bash
 
+    - name: Import Certificate
+      if: matrix.os == 'macos-latest'
+      uses: apple-actions/import-codesign-certs@v2
+      with:
+        p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+        p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+
+    - name: Sign Binary
+      if: matrix.os == 'macos-latest'
+      run: |
+        codesign --force --options runtime -s "Developer ID Application" target/${{ matrix.target }}/release/rrconverter
+
+    - name: Notarize
+      if: matrix.os == 'macos-latest'
+      run: |
+        zip -j notarize.zip target/${{ matrix.target }}/release/rrconverter
+        xcrun notarytool submit notarize.zip --apple-id ${{ secrets.MACOS_NOTARY_APPLE_ID }} --password ${{ secrets.MACOS_NOTARY_PWD }} --team-id ${{ secrets.MACOS_NOTARY_TEAM_ID }} --wait
+
     - name: Prepare Artifact
       run: |
         cd target/${{ matrix.target }}/release
