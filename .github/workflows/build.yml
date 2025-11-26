@@ -70,3 +70,30 @@ jobs:
       with:
         name: rrconverter-${{ matrix.name }}
         path: rrconverter-${{ matrix.name }}*
+
+  release:
+    name: Create Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get Short SHA
+        id: vars
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ steps.vars.outputs.sha }}
+          name: Build ${{ steps.vars.outputs.sha }}
+          prerelease: true
+          files: artifacts/**/*
