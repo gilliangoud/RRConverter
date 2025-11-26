@@ -14,12 +14,23 @@ It's written in rust for a small footprint and fast performance.
 
 ```json
 {
-    "event": "passing",
-    "data": {
-        "lane": 1,
-        "time": 123456789,
-        "speed": 12.34
-    }
+    "passing_number": "1",
+    "transponder": "12345",
+    "date": "2023-10-27T10:00:00.000",
+    "time": "10:00:00.000",
+    "event_id": "123456",
+    "hits": "10",
+    "max_rssi": "-50",
+    "internal_data": "0000",
+    "is_active": "1",
+    "channel": "1",
+    "loop_id": "1",
+    "loop_id_wakeup": "1",
+    "battery": "3.0",
+    "temperature": "25",
+    "internal_active_data": "0000",
+    "box_temp": "30",
+    "box_reader_id": "0"
 }
 ```
 
