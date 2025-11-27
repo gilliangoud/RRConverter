@@ -83,7 +83,30 @@ impl Decoder {
 
         // Initialize protocol
         framed.send("SETPROTOCOL;2.0").await?;
+        
+        if let Some(line) = framed.next().await {
+            let msg = line?;
+            if msg != "SETPROTOCOL;2.0" {
+                eprintln!("Unexpected response to SETPROTOCOL: {}", msg);
+            } else {
+                println!("Protocol set to 2.0");
+            }
+        } else {
+            return Err("Connection closed during initialization".into());
+        }
+
         framed.send("SETPUSHPASSINGS;1;1").await?;
+
+        if let Some(line) = framed.next().await {
+            let msg = line?;
+            if msg != "SETPUSHPASSINGS;1" {
+                eprintln!("Unexpected response to SETPUSHPASSINGS: {}", msg);
+            } else {
+                println!("Push passings enabled");
+            }
+        } else {
+            return Err("Connection closed during initialization".into());
+        }
 
         // Ping interval
         let mut ping_interval = interval(Duration::from_secs(30));
