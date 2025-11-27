@@ -2,23 +2,22 @@ mod decoder;
 mod scanner;
 mod server;
 
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 use tokio::sync::broadcast;
+use crate::decoder::WsMessage;
 
 #[tokio::main]
 async fn main() {
     println!("Starting rrconverter...");
 
-    let (tx, _rx) = broadcast::channel(100);
+    let (tx, _rx) = broadcast::channel::<WsMessage>(100);
+    let is_connected = Arc::new(AtomicBool::new(false));
 
     // Start WebSocket server in the background
-    // Note: In the plan I said "Spawn Decoder and Server" after scan.
-    // But the server can probably run independently, or it should only run when we have a connection?
-    // The request said "host a websocket server on which it can pass on the received passings".
-    // It's probably fine to have the server always running, or running once we start.
-    // Let's spawn it once globally.
     let tx_clone = tx.clone();
+    let is_connected_clone = is_connected.clone();
     tokio::spawn(async move {
-        server::start_server(tx_clone, 8080).await;
+        server::start_server(tx_clone, 8080, is_connected_clone).await;
     });
 
     loop {
@@ -28,9 +27,12 @@ async fn main() {
             let decoder = decoder::Decoder::new(ip, 3601);
             
             // Run decoder. If it returns, it means it disconnected.
-            decoder.run(tx.clone()).await;
+            decoder.run(tx.clone(), is_connected.clone()).await;
             
+            // Disconnected
             println!("Decoder disconnected, rescanning...");
+            // Status updates are now handled inside decoder.run
+
         } else {
             println!("Decoder not found, retrying in 5 seconds...");
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;

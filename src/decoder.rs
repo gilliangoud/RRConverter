@@ -7,6 +7,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio::time::interval;
 use tokio_util::codec::{Framed, LinesCodec};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Passing {
@@ -29,6 +30,13 @@ pub struct Passing {
     pub box_reader_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WsMessage {
+    Passing(Passing),
+    Status { event: String },
+}
+
 pub struct Decoder {
     ip: IpAddr,
     port: u16,
@@ -39,29 +47,37 @@ impl Decoder {
         Self { ip, port }
     }
 
-    pub async fn run(&self, tx: broadcast::Sender<Passing>) {
-        loop {
-            println!("Connecting to decoder at {}:{}", self.ip, self.port);
-            match TcpStream::connect((self.ip, self.port)).await {
-                Ok(socket) => {
-                    println!("Connected to decoder");
-                    if let Err(e) = self.handle_connection(socket, &tx).await {
-                        eprintln!("Connection error: {}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to connect: {}", e);
+    pub async fn run(&self, tx: broadcast::Sender<WsMessage>, is_connected: Arc<AtomicBool>) {
+        println!("Connecting to decoder at {}:{}", self.ip, self.port);
+        match TcpStream::connect((self.ip, self.port)).await {
+            Ok(socket) => {
+                println!("Connected to decoder");
+                
+                // Status: Connected
+                is_connected.store(true, Ordering::SeqCst);
+                let _ = tx.send(WsMessage::Status { event: "connected".to_string() });
+
+                if let Err(e) = self.handle_connection(socket, &tx).await {
+                    eprintln!("Connection error: {}", e);
                 }
             }
-            // Wait before reconnecting
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            Err(e) => {
+                eprintln!("Failed to connect: {}", e);
+            }
+        }
+
+        // Status: Disconnected
+        // Only send if we were previously connected (or just ensure state is false)
+        if is_connected.load(Ordering::SeqCst) {
+            is_connected.store(false, Ordering::SeqCst);
+            let _ = tx.send(WsMessage::Status { event: "disconnected".to_string() });
         }
     }
 
     async fn handle_connection(
         &self,
         socket: TcpStream,
-        tx: &broadcast::Sender<Passing>,
+        tx: &broadcast::Sender<WsMessage>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut framed = Framed::new(socket, LinesCodec::new());
 
@@ -90,7 +106,7 @@ impl Decoder {
         }
     }
 
-    fn process_message(&self, msg: &str, tx: &broadcast::Sender<Passing>) {
+    fn process_message(&self, msg: &str, tx: &broadcast::Sender<WsMessage>) {
         // println!("Received: {}", msg);
         let parts: Vec<&str> = msg.split(';').collect();
         if parts.is_empty() {
@@ -114,7 +130,7 @@ impl Decoder {
                     let time_str = get_part(4);
                     
                     // Combine date and time for ISO string
-                    let iso_date = format!("{}T{}", date_str, time_str.replace(':', "."));
+                    let iso_date = format!("{}T{}", date_str, time_str);
 
                     let passing = Passing {
                         passing_number,
@@ -137,7 +153,7 @@ impl Decoder {
                     };
                     
                     println!("Passing: {:?}", passing);
-                    let _ = tx.send(passing);
+                    let _ = tx.send(WsMessage::Passing(passing));
                 }
             }
             "PING" => {
