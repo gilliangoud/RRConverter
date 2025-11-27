@@ -153,7 +153,11 @@ impl Decoder {
                     };
                     
                     println!("Passing: {:?}", passing);
-                    let _ = tx.send(WsMessage::Passing(passing));
+                    if let Err(e) = tx.send(WsMessage::Passing(passing)) {
+                        eprintln!("Error broadcasting passing: {}. Original data: {}", e, msg);
+                    }
+                } else {
+                    eprintln!("Error processing passing: Insufficient data parts. Original data: {}", msg);
                 }
             }
             "PING" => {
