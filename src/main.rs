@@ -1,6 +1,7 @@
 mod decoder;
 mod scanner;
 mod server;
+mod json_server;
 
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 use tokio::sync::broadcast;
@@ -23,6 +24,14 @@ struct Args {
     /// Decoder port
     #[arg(long, default_value_t = 3601)]
     decoder_port: u16,
+
+    /// Enable JSON Server Mode (listens for JSON connections instead of connecting to decoder)
+    #[arg(long, default_value_t = false)]
+    listen_mode: bool,
+
+    /// Port to listen on in JSON Server Mode
+    #[arg(long, default_value_t = 3602)]
+    listen_port: u16,
 }
 
 #[tokio::main]
@@ -40,29 +49,34 @@ async fn main() {
         server::start_server(tx_clone, 8080, is_connected_clone).await;
     });
 
-    loop {
-        let ip = if let Some(ip) = args.decoder_ip {
-            println!("Using specified decoder IP: {}", ip);
-            Some(ip)
-        } else {
-            println!("Scanning for decoder...");
-            scanner::scan_for_decoder(args.decoder_port, args.ip_range.clone()).await
-        };
+    if args.listen_mode {
+        println!("Starting in JSON Server Mode...");
+        json_server::run_server(tx, args.listen_port, is_connected).await;
+    } else {
+        loop {
+            let ip = if let Some(ip) = args.decoder_ip {
+                println!("Using specified decoder IP: {}", ip);
+                Some(ip)
+            } else {
+                println!("Scanning for decoder...");
+                scanner::scan_for_decoder(args.decoder_port, args.ip_range.clone()).await
+            };
 
-        if let Some(ip) = ip {
-            println!("Found decoder at {}", ip);
-            let decoder = decoder::Decoder::new(ip, args.decoder_port);
-            
-            // Run decoder. If it returns, it means it disconnected.
-            decoder.run(tx.clone(), is_connected.clone()).await;
-            
-            // Disconnected
-            println!("Decoder disconnected, retrying...");
-            // Status updates are now handled inside decoder.run
+            if let Some(ip) = ip {
+                println!("Found decoder at {}", ip);
+                let decoder = decoder::Decoder::new(ip, args.decoder_port);
+                
+                // Run decoder. If it returns, it means it disconnected.
+                decoder.run(tx.clone(), is_connected.clone()).await;
+                
+                // Disconnected
+                println!("Decoder disconnected, retrying...");
+                // Status updates are now handled inside decoder.run
 
-        } else {
-            println!("Decoder not found, retrying in 5 seconds...");
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            } else {
+                println!("Decoder not found, retrying in 5 seconds...");
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            }
         }
     }
 }

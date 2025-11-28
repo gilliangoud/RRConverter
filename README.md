@@ -46,6 +46,8 @@ Download the latest release from the [releases](https://github.com/gillian/rrcon
 - `--ip-range <PREFIX>`: Manually specify the subnet to scan (e.g., `192.168.1.`).
 - `--decoder-ip <IP>`: Connect directly to a specific IP, skipping the scan.
 - `--decoder-port <PORT>`: Use a different port (default: 3601).
+- `--listen-mode`: Enable JSON Server Mode (listens for JSON connections instead of connecting to a decoder).
+- `--listen-port <PORT>`: Port to listen on in JSON Server Mode (default: 3602).
 
 ## Built on
 
