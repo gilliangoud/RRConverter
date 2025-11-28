@@ -38,8 +38,14 @@ It's written in rust for a small footprint and fast performance.
 Download the latest release from the [releases](https://github.com/gillian/rrconverter/releases) page and run it with:
 
 ```sh
-./rrconverter
+./rrconverter [OPTIONS]
 ```
+
+### Options
+
+- `--ip-range <PREFIX>`: Manually specify the subnet to scan (e.g., `192.168.1.`).
+- `--decoder-ip <IP>`: Connect directly to a specific IP, skipping the scan.
+- `--decoder-port <PORT>`: Use a different port (default: 3601).
 
 ## Built on
 

@@ -6,8 +6,28 @@ use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 use tokio::sync::broadcast;
 use crate::decoder::WsMessage;
 
+use clap::Parser;
+use std::net::IpAddr;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Optional IP range to scan (e.g. "192.168.1.")
+    #[arg(long)]
+    ip_range: Option<String>,
+
+    /// Specific decoder IP to connect to (skips scanning)
+    #[arg(long)]
+    decoder_ip: Option<IpAddr>,
+
+    /// Decoder port
+    #[arg(long, default_value_t = 3601)]
+    decoder_port: u16,
+}
+
 #[tokio::main]
 async fn main() {
+    let args = Args::parse();
     println!("Starting rrconverter...");
 
     let (tx, _rx) = broadcast::channel::<WsMessage>(100);
@@ -21,16 +41,23 @@ async fn main() {
     });
 
     loop {
-        println!("Scanning for decoder...");
-        if let Some(ip) = scanner::scan_for_decoder(3601).await {
+        let ip = if let Some(ip) = args.decoder_ip {
+            println!("Using specified decoder IP: {}", ip);
+            Some(ip)
+        } else {
+            println!("Scanning for decoder...");
+            scanner::scan_for_decoder(args.decoder_port, args.ip_range.clone()).await
+        };
+
+        if let Some(ip) = ip {
             println!("Found decoder at {}", ip);
-            let decoder = decoder::Decoder::new(ip, 3601);
+            let decoder = decoder::Decoder::new(ip, args.decoder_port);
             
             // Run decoder. If it returns, it means it disconnected.
             decoder.run(tx.clone(), is_connected.clone()).await;
             
             // Disconnected
-            println!("Decoder disconnected, rescanning...");
+            println!("Decoder disconnected, retrying...");
             // Status updates are now handled inside decoder.run
 
         } else {

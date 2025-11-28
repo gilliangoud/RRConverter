@@ -4,22 +4,26 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-pub async fn scan_for_decoder(port: u16) -> Option<IpAddr> {
-    let my_local_ip = match local_ip() {
-        Ok(ip) => ip,
-        Err(e) => {
-            eprintln!("Failed to get local IP: {}", e);
+pub async fn scan_for_decoder(port: u16, subnet_prefix: Option<String>) -> Option<IpAddr> {
+    let subnet_prefix = if let Some(prefix) = subnet_prefix {
+        prefix
+    } else {
+        let my_local_ip = match local_ip() {
+            Ok(ip) => ip,
+            Err(e) => {
+                eprintln!("Failed to get local IP: {}", e);
+                return None;
+            }
+        };
+
+        let IpAddr::V4(ipv4) = my_local_ip else {
+            eprintln!("IPv6 not supported for scanning yet");
             return None;
-        }
-    };
+        };
 
-    let IpAddr::V4(ipv4) = my_local_ip else {
-        eprintln!("IPv6 not supported for scanning yet");
-        return None;
+        let octets = ipv4.octets();
+        format!("{}.{}.{}.", octets[0], octets[1], octets[2])
     };
-
-    let octets = ipv4.octets();
-    let subnet_prefix = format!("{}.{}.{}.", octets[0], octets[1], octets[2]);
 
     println!("Scanning subnet {}0/24 for port {}", subnet_prefix, port);
 
