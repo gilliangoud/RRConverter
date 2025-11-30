@@ -82,24 +82,21 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
                             ("".to_string(), "".to_string())
                         };
 
-                        // Fix for invalid UTCTime (0001-01-01)
-                        if date_str == "0001-01-01" || date_str.is_empty() {
-                            if let Some(seconds_since_midnight) = inner.Time {
-                                // Calculate time from seconds
-                                let seconds = seconds_since_midnight as u32;
-                                let millis = ((seconds_since_midnight - seconds as f64) * 1000.0) as u32;
-                                let hours = seconds / 3600;
-                                let minutes = (seconds % 3600) / 60;
-                                let secs = seconds % 60;
-                                
-                                time_str = format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, secs, millis);
-                                
-                                // Use current date as fallback
+                        // Always prioritize Time object if available
+                        if let Some(seconds_since_midnight) = inner.Time {
+                            // Calculate time from seconds
+                            let seconds = seconds_since_midnight as u32;
+                            let millis = ((seconds_since_midnight - seconds as f64) * 1000.0) as u32;
+                            let hours = seconds / 3600;
+                            let minutes = (seconds % 3600) / 60;
+                            let secs = seconds % 60;
+                            
+                            time_str = format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, secs, millis);
+                            
+                            // If date_str is invalid or empty, use current date
+                            if date_str == "0001-01-01" || date_str.is_empty() {
                                 let now = chrono::Local::now();
                                 date_str = now.format("%Y-%m-%d").to_string();
-                                
-                                // Reconstruct ISO-ish date string for `date` field
-                                // The `date` field in Passing struct is expected to be the full ISO string
                             }
                         }
 
