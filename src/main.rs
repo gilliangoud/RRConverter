@@ -32,6 +32,10 @@ struct Args {
     /// Port to listen on in JSON Server Mode
     #[arg(long, default_value_t = 3602)]
     listen_port: u16,
+
+    /// Enable debug logging
+    #[arg(long, default_value_t = false)]
+    debug: bool,
 }
 
 #[tokio::main]
@@ -51,7 +55,7 @@ async fn main() {
 
     if args.listen_mode {
         println!("Starting in JSON Server Mode...");
-        json_server::run_server(tx, args.listen_port, is_connected).await;
+        json_server::run_server(tx, args.listen_port, is_connected, args.debug).await;
     } else {
         loop {
             let ip = if let Some(ip) = args.decoder_ip {

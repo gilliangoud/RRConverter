@@ -27,7 +27,7 @@ struct JsonPassingWrapper {
     Passing: JsonPassingInner,
 }
 
-pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connected: Arc<AtomicBool>) {
+pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connected: Arc<AtomicBool>, debug: bool) {
     let addr = format!("0.0.0.0:{}", port);
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
@@ -64,6 +64,10 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.trim().is_empty() {
                     continue;
+                }
+
+                if debug {
+                    println!("DEBUG Input: {}", line);
                 }
 
                 match serde_json::from_str::<JsonPassingWrapper>(&line) {
@@ -125,7 +129,14 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
                             box_reader_id: "".to_string(),
                         };
 
-                        println!("JSON Passing: {:?}", passing);
+                        if debug {
+                            if let Ok(json_output) = serde_json::to_string(&passing) {
+                                println!("DEBUG Output: {}", json_output);
+                            }
+                        } else {
+                            println!("JSON Passing: {:?}", passing);
+                        }
+
                         if let Err(e) = tx.send(WsMessage::Passing(passing)) {
                             eprintln!("Error broadcasting passing: {}", e);
                         }

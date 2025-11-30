@@ -48,6 +48,7 @@ Download the latest release from the [releases](https://github.com/gillian/rrcon
 - `--decoder-port <PORT>`: Use a different port (default: 3601).
 - `--listen-mode`: Enable JSON Server Mode (listens for JSON connections instead of connecting to a decoder).
 - `--listen-port <PORT>`: Port to listen on in JSON Server Mode (default: 3602).
+- `--debug`: Enable debug logging (logs input/output JSON in server mode).
 
 ## Built on
 
