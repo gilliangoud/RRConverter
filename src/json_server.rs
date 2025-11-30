@@ -18,6 +18,7 @@ struct JsonPassingInner {
     InternalData: Option<String>,
     PassingNo: Option<i64>,
     UTCTime: String, // "2024-01-12T09:06:35.944Z"
+    Time: Option<f64>, // Seconds since midnight, e.g. 47217.234
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,21 +72,43 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
                         
                         // Parse UTCTime to date and time
                         // Format: "2024-01-12T09:06:35.944Z"
-                        let (date_str, time_str) = if let Some((d, t)) = inner.UTCTime.split_once('T') {
+                        let (mut date_str, mut time_str) = if let Some((d, t)) = inner.UTCTime.split_once('T') {
                             (d.to_string(), t.trim_end_matches('Z').to_string())
                         } else {
                             ("".to_string(), "".to_string())
                         };
 
+                        // Fix for invalid UTCTime (0001-01-01)
+                        if date_str == "0001-01-01" || date_str.is_empty() {
+                            if let Some(seconds_since_midnight) = inner.Time {
+                                // Calculate time from seconds
+                                let seconds = seconds_since_midnight as u32;
+                                let millis = ((seconds_since_midnight - seconds as f64) * 1000.0) as u32;
+                                let hours = seconds / 3600;
+                                let minutes = (seconds % 3600) / 60;
+                                let secs = seconds % 60;
+                                
+                                time_str = format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, secs, millis);
+                                
+                                // Use current date as fallback
+                                let now = chrono::Local::now();
+                                date_str = now.format("%Y-%m-%d").to_string();
+                                
+                                // Reconstruct ISO-ish date string for `date` field
+                                // The `date` field in Passing struct is expected to be the full ISO string
+                            }
+                        }
+
+                        let full_iso_date = if !date_str.is_empty() && !time_str.is_empty() {
+                            format!("{}T{}", date_str, time_str)
+                        } else {
+                            inner.UTCTime.clone()
+                        };
+
                         let passing = Passing {
                             passing_number: inner.PassingNo.map(|v| v.to_string()).unwrap_or_default(),
                             transponder: inner.Transponder,
-                            date: inner.UTCTime.clone(), // Keep full ISO string for date field as per previous logic? 
-                                                         // Wait, decoder.rs combines them: let iso_date = format!("{}T{}", date_str, time_str);
-                                                         // But here we already have ISO.
-                                                         // Let's check decoder.rs Passing struct usage.
-                                                         // In decoder.rs: pub date: String, // ISO 8601 format
-                                                         // So we should put the full ISO string in `date`.
+                            date: full_iso_date,
                             time: time_str,
                             event_id: "".to_string(),
                             hits: inner.Hits.map(|v| v.to_string()).unwrap_or_default(),
