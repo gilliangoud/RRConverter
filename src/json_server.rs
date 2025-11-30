@@ -18,13 +18,13 @@ struct JsonPassingInner {
     InternalData: Option<String>,
     PassingNo: Option<i64>,
     UTCTime: String, // "2024-01-12T09:06:35.944Z"
-    Time: Option<f64>, // Seconds since midnight, e.g. 47217.234
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case)]
 struct JsonPassingWrapper {
     Passing: JsonPassingInner,
+    Time: Option<f64>,
 }
 
 pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connected: Arc<AtomicBool>, debug: bool) {
@@ -72,6 +72,7 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
 
                 match serde_json::from_str::<JsonPassingWrapper>(&line) {
                     Ok(wrapper) => {
+                        let time_val = wrapper.Time;
                         let inner = wrapper.Passing;
                         
                         // Parse UTCTime to date and time
@@ -83,7 +84,7 @@ pub async fn run_server(tx: broadcast::Sender<WsMessage>, port: u16, is_connecte
                         };
 
                         // Always prioritize Time object if available
-                        if let Some(seconds_since_midnight) = inner.Time {
+                        if let Some(seconds_since_midnight) = time_val {
                             // Calculate time from seconds
                             let seconds = seconds_since_midnight as u32;
                             let millis = ((seconds_since_midnight - seconds as f64) * 1000.0) as u32;
